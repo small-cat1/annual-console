@@ -38,9 +38,17 @@
                 '--glow-color': item.color || '#ffd700',
               }"
             >
-              <span class="star-content">{{
-                truncateText(item.content, 20)
-              }}</span>
+              <div class="star-avatar">
+                <img :src="item.user?.avatar || defaultAvatar" alt="" />
+              </div>
+              <div class="star-info">
+                <span class="star-name">{{
+                  item.user?.nickname || "匿名"
+                }}</span>
+                <span class="star-content">{{
+                  truncateText(item.content, 15)
+                }}</span>
+              </div>
             </div>
             <div
               class="star-glow"
@@ -213,17 +221,17 @@ const generatePosition = () => {
 
 // 生成弹幕样式
 const generateStyle = (color) => {
-  const { left, top } = generatePosition()
-  const scale = 0.8 + Math.random() * 0.4
-  const delay = Math.random() * 3 // 0-3秒随机延迟，让闪烁错开
-  
+  const { left, top } = generatePosition();
+  const scale = 0.8 + Math.random() * 0.4;
+  const delay = Math.random() * 3; // 0-3秒随机延迟，让闪烁错开
+
   return {
     left: `${left}%`,
     top: `${top}%`,
-    '--scale': scale,
-    '--delay': `${delay}s`
-  }
-}
+    "--scale": scale,
+    "--delay": `${delay}s`,
+  };
+};
 
 // 截断文本
 const truncateText = (text, maxLen) => {
@@ -480,10 +488,15 @@ $text-light: #fff5e6;
     z-index: 10;
     
     .star-bubble {
-      transform: scale(1.1);
-      background: rgba(255, 215, 0, 0.25);
+      transform: scale(1.08);
+      background: rgba(0, 0, 0, 0.6);
       border-color: var(--bubble-color);
       animation-play-state: paused;
+    }
+    
+    .star-avatar {
+      border-color: var(--bubble-color);
+      box-shadow: 0 0 10px var(--glow-color);
     }
     
     .star-glow {
@@ -497,7 +510,11 @@ $text-light: #fff5e6;
     
     .star-bubble {
       border-color: var(--bubble-color);
-      box-shadow: 0 0 15px var(--glow-color);
+      box-shadow: 0 0 20px var(--glow-color);
+    }
+    
+    .star-avatar {
+      animation: avatarPop 0.5s ease-out;
     }
     
     .star-glow {
@@ -509,30 +526,70 @@ $text-light: #fff5e6;
 
 .star-bubble {
   position: relative;
-  padding: 8px 14px;
-  background: rgba(0, 0, 0, 0.4);
-  border: 1px solid var(--bubble-color, rgba(255, 255, 255, 0.2));
-  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px 8px 8px;
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 25px;
   backdrop-filter: blur(8px);
   transition: transform 0.3s ease, background 0.3s ease;
-  animation: starTwinkle 2s ease-in-out infinite;
+  animation: starTwinkle 2.5s ease-in-out infinite;
   animation-delay: var(--delay, 0s);
+}
+
+.star-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  transition: all 0.3s ease;
   
-  .star-content {
-    font-size: 13px;
-    color: var(--bubble-color, #fff5e6);
-    white-space: nowrap;
-    text-shadow: 0 0 8px var(--glow-color);
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
+}
+
+.star-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.star-name {
+  font-size: 11px;
+  color: var(--bubble-color, #ffd700);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
+  text-shadow: 0 0 6px var(--glow-color);
+}
+
+.star-content {
+  font-size: 13px;
+  color: #fff5e6;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
 }
 
 .star-glow {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle, var(--glow-color, rgba(255, 215, 0, 0.4)) 0%, transparent 70%);
+  width: 120%;
+  height: 120%;
+  background: radial-gradient(circle, var(--glow-color, rgba(255, 215, 0, 0.3)) 0%, transparent 70%);
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(1);
   opacity: 0.3;
@@ -543,17 +600,30 @@ $text-light: #fff5e6;
   animation-delay: var(--delay, 0s);
 }
 
+// 头像弹出动画
+@keyframes avatarPop {
+  0% {
+    transform: scale(0);
+  }
+  50% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 // 星星闪烁动画
 @keyframes starTwinkle {
   0%, 100% {
-    opacity: 0.7;
+    opacity: 0.75;
     transform: scale(1);
     box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
   }
   50% {
     opacity: 1;
-    transform: scale(1.05);
-    box-shadow: 0 0 15px var(--glow-color, rgba(255, 215, 0, 0.4));
+    transform: scale(1.03);
+    box-shadow: 0 0 15px var(--glow-color, rgba(255, 215, 0, 0.3));
   }
 }
 
