@@ -31,12 +31,21 @@
             :style="item.style"
             @click="openDetail(item)"
           >
-            <div class="star-bubble">
+            <div
+              class="star-bubble"
+              :style="{
+                '--bubble-color': item.color || '#ffd700',
+                '--glow-color': item.color || '#ffd700',
+              }"
+            >
               <span class="star-content">{{
                 truncateText(item.content, 20)
               }}</span>
             </div>
-            <div class="star-glow" />
+            <div
+              class="star-glow"
+              :style="{ '--glow-color': item.color || '#ffd700' }"
+            />
           </div>
         </TransitionGroup>
 
@@ -115,9 +124,9 @@
 
 <script setup>
 import { getDanmakuList } from "@/api/danmaku";
+import { showSuccess, showToast } from "@/components/Toast";
 import { useWebSocketStore } from "@/store/websocket";
 import { formatDate } from "@/utils/format";
-import { showToast, showSuccess } from '@/components/Toast'
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps({
@@ -203,19 +212,18 @@ const generatePosition = () => {
 };
 
 // 生成弹幕样式
-const generateStyle = () => {
-  const { left, top } = generatePosition();
-  const scale = 0.8 + Math.random() * 0.4; // 0.8 - 1.2
-  const hue = Math.random() * 60 + 30; // 30-90 暖色调
-
+const generateStyle = (color) => {
+  const { left, top } = generatePosition()
+  const scale = 0.8 + Math.random() * 0.4
+  const delay = Math.random() * 3 // 0-3秒随机延迟，让闪烁错开
+  
   return {
     left: `${left}%`,
     top: `${top}%`,
-    "--scale": scale,
-    "--hue": hue,
-    "--delay": `${Math.random() * 2}s`,
-  };
-};
+    '--scale': scale,
+    '--delay': `${delay}s`
+  }
+}
 
 // 截断文本
 const truncateText = (text, maxLen) => {
@@ -228,7 +236,7 @@ const initDisplayList = () => {
   usedPositions.length = 0;
   displayList.value = danmakuList.value.map((item) => ({
     ...item,
-    style: generateStyle(),
+    style: generateStyle(item.color),
     isNew: false,
   }));
 };
@@ -296,9 +304,9 @@ const highlightMessage = (item) => {
 const copyContent = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
-    showSuccess('已复制')
+    showSuccess("已复制");
   } catch (e) {
-    showToast({ message: '复制失败', type: 'error' })
+    showToast({ message: "复制失败", type: "error" });
   }
 };
 
@@ -458,6 +466,7 @@ $text-light: #fff5e6;
 }
 
 // 弹幕星星
+// 弹幕星星
 .danmaku-star {
   position: absolute;
   cursor: pointer;
@@ -466,30 +475,31 @@ $text-light: #fff5e6;
   animation-delay: var(--delay, 0s);
   animation-fill-mode: both;
   z-index: 1;
-
+  
   &:hover {
     z-index: 10;
-
+    
     .star-bubble {
       transform: scale(1.1);
       background: rgba(255, 215, 0, 0.25);
-      border-color: rgba(255, 215, 0, 0.6);
+      border-color: var(--bubble-color);
+      animation-play-state: paused;
     }
-
+    
     .star-glow {
       opacity: 1;
       transform: scale(1.5);
     }
   }
-
+  
   &.is-new {
     animation: newStar 0.8s ease-out;
-
+    
     .star-bubble {
-      background: rgba(255, 215, 0, 0.3);
-      border-color: $primary-gold;
+      border-color: var(--bubble-color);
+      box-shadow: 0 0 15px var(--glow-color);
     }
-
+    
     .star-glow {
       opacity: 1;
       animation: pulse 1s ease-in-out infinite;
@@ -500,16 +510,19 @@ $text-light: #fff5e6;
 .star-bubble {
   position: relative;
   padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--bubble-color, rgba(255, 255, 255, 0.2));
   border-radius: 20px;
   backdrop-filter: blur(8px);
-  transition: all 0.3s ease;
-
+  transition: transform 0.3s ease, background 0.3s ease;
+  animation: starTwinkle 2s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+  
   .star-content {
     font-size: 13px;
-    color: $text-light;
+    color: var(--bubble-color, #fff5e6);
     white-space: nowrap;
+    text-shadow: 0 0 8px var(--glow-color);
   }
 }
 
@@ -519,17 +532,41 @@ $text-light: #fff5e6;
   left: 50%;
   width: 100%;
   height: 100%;
-  background: radial-gradient(
-    circle,
-    rgba(255, 215, 0, 0.4) 0%,
-    transparent 70%
-  );
+  background: radial-gradient(circle, var(--glow-color, rgba(255, 215, 0, 0.4)) 0%, transparent 70%);
   border-radius: 50%;
   transform: translate(-50%, -50%) scale(1);
-  opacity: 0;
+  opacity: 0.3;
   transition: all 0.3s ease;
   pointer-events: none;
   z-index: -1;
+  animation: glowPulse 3s ease-in-out infinite;
+  animation-delay: var(--delay, 0s);
+}
+
+// 星星闪烁动画
+@keyframes starTwinkle {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+    box-shadow: 0 0 5px rgba(255, 255, 255, 0.1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+    box-shadow: 0 0 15px var(--glow-color, rgba(255, 215, 0, 0.4));
+  }
+}
+
+// 光晕呼吸动画
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: translate(-50%, -50%) scale(1.3);
+  }
 }
 
 @keyframes fadeInStar {
@@ -558,15 +595,8 @@ $text-light: #fff5e6;
 }
 
 @keyframes pulse {
-  0%,
-  100% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translate(-50%, -50%) scale(1.8);
-    opacity: 0.2;
-  }
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+  50% { transform: translate(-50%, -50%) scale(1.8); opacity: 0.2; }
 }
 
 // 列表动画
