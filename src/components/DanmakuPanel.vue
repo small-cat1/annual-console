@@ -117,7 +117,7 @@
 import { getDanmakuList } from "@/api/danmaku";
 import { useWebSocketStore } from "@/store/websocket";
 import { formatDate } from "@/utils/format";
-import { showToast } from "vant";
+import { showToast, showSuccess } from '@/components/Toast'
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps({
@@ -296,9 +296,9 @@ const highlightMessage = (item) => {
 const copyContent = async (text) => {
   try {
     await navigator.clipboard.writeText(text);
-    showToast("已复制");
+    showSuccess('已复制')
   } catch (e) {
-    showToast("复制失败");
+    showToast({ message: '复制失败', type: 'error' })
   }
 };
 
