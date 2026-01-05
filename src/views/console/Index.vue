@@ -165,7 +165,7 @@
       <footer class="console-footer">
         <div class="footer-item">
           <span class="footer-icon">📡</span>
-          <span>{{ wsStore.isConnected ? '实时同步中' : '连接中...' }}</span>
+          <span>{{ wsStore.isConnected ? "实时同步中" : "连接中..." }}</span>
         </div>
         <div class="footer-item">
           <span class="footer-icon">🎪</span>
@@ -183,35 +183,38 @@
 </template>
 
 <script setup>
-import { closeCheckIn, getCheckInStats, openCheckIn } from '@/api/checkin'
-import DanmakuPanel from '@/components/DanmakuPanel.vue'
-import { useActivityStore } from '@/store/activity'
-import { useWebSocketStore } from '@/store/websocket'
-import QrcodeVue from 'qrcode.vue'
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { closeCheckIn, getCheckInStats, openCheckIn } from "@/api/checkin";
+import DanmakuPanel from "@/components/DanmakuPanel.vue";
+import { useActivityStore } from "@/store/activity";
+import { useWebSocketStore } from "@/store/websocket";
+import QrcodeVue from "qrcode.vue";
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from "vue";
+import { useRoute, useRouter } from "vue-router";
 
-const router = useRouter()
-const route = useRoute()
-const activityStore = useActivityStore()
-const wsStore = useWebSocketStore()
+const router = useRouter();
+const route = useRoute();
+const activityStore = useActivityStore();
+const wsStore = useWebSocketStore();
 
-const H5_BASE = import.meta.env.VITE_APP_H5_URL || window.location.origin
+const H5_BASE = import.meta.env.VITE_APP_H5_URL || window.location.origin;
 
 // WebSocket 状态文字
 const wsStatusText = computed(() => {
   switch (wsStore.status) {
-    case 'connected': return '已连接'
-    case 'connecting': return '连接中'
-    default: return '未连接'
+    case "connected":
+      return "已连接";
+    case "connecting":
+      return "连接中";
+    default:
+      return "未连接";
   }
-})
+});
 
 // 当前时间
-const currentTime = ref('')
+const currentTime = ref("");
 
 // 签到列表
-const defaultAvatar = 'https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg'
+const defaultAvatar = "https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg";
 
 // 签到统计数据
 const checkInData = reactive({
@@ -220,59 +223,60 @@ const checkInData = reactive({
   pending: 0,
   approved: 0,
   rejected: 0,
-  list: []
-})
+  list: [],
+});
 
 // 按钮加载状态
-const btnLoading = ref(false)
+const btnLoading = ref(false);
 
 // 签到二维码URL
 const checkInQrUrl = computed(
-  () => `${H5_BASE}/entry?activityId=${activityStore.activityId}&t=${Date.now()}`
-)
+  () =>
+    `${H5_BASE}/entry?activityId=${activityStore.activityId}&t=${Date.now()}`
+);
 
 // 定时器
-let timeTimer = null
+let timeTimer = null;
 // WebSocket 订阅取消函数
-let unsubscribeCheckin = null
+let unsubscribeCheckin = null;
 
 // 更新当前时间
 const updateTime = () => {
-  const now = new Date()
-  currentTime.value = now.toLocaleTimeString('zh-CN', { hour12: false })
-}
+  const now = new Date();
+  currentTime.value = now.toLocaleTimeString("zh-CN", { hour12: false });
+};
 
 // 获取签到统计（仅初始化时调用一次）
 const fetchCheckInData = async () => {
-  if (!activityStore.activityId) return
+  if (!activityStore.activityId) return;
 
   try {
-    const res = await getCheckInStats(activityStore.activityId)
+    const res = await getCheckInStats(activityStore.activityId);
     if (res.code === 0 && res.data) {
-      checkInData.isOpen = res.data.isOpen || false
-      checkInData.total = res.data.total || 0
-      checkInData.pending = res.data.pending || 0
-      checkInData.approved = res.data.approved || 0
-      checkInData.rejected = res.data.rejected || 0
-      checkInData.list = res.data.list || []
+      checkInData.isOpen = res.data.isOpen || false;
+      checkInData.total = res.data.total || 0;
+      checkInData.pending = res.data.pending || 0;
+      checkInData.approved = res.data.approved || 0;
+      checkInData.rejected = res.data.rejected || 0;
+      checkInData.list = res.data.list || [];
     }
   } catch (e) {
-    console.error('获取签到统计失败', e)
+    console.error("获取签到统计失败", e);
   }
-}
+};
 
 // 处理新签到（WebSocket 推送）
 const handleNewCheckin = (data) => {
-  console.log('收到新签到:', data)
-  
+  console.log("收到新签到:", data);
+
   // 更新统计
-  checkInData.total++
+  checkInData.total++;
   if (data.status === 0) {
-    checkInData.pending++
+    checkInData.pending++;
   } else if (data.status === 1) {
-    checkInData.approved++
+    checkInData.approved++;
   }
-  
+
   // 添加到列表头部
   checkInData.list.unshift({
     id: data.id,
@@ -280,100 +284,105 @@ const handleNewCheckin = (data) => {
     realName: data.realName,
     avatar: data.avatar,
     department: data.department,
-    checkInTime: data.checkInTime || new Date().toLocaleTimeString('zh-CN', { hour12: false })
-  })
-  
+    checkInTime:
+      data.checkInTime ||
+      new Date().toLocaleTimeString("zh-CN", { hour12: false }),
+  });
+
   // 限制列表长度
   if (checkInData.list.length > 20) {
-    checkInData.list = checkInData.list.slice(0, 20)
+    checkInData.list = checkInData.list.slice(0, 20);
   }
-}
+};
 
 // 订阅 WebSocket 消息
 const subscribeWebSocket = () => {
   if (unsubscribeCheckin) {
-    unsubscribeCheckin()
+    unsubscribeCheckin();
   }
-  unsubscribeCheckin = wsStore.subscribe('new_checkin', handleNewCheckin)
-}
+  unsubscribeCheckin = wsStore.subscribe("checkin_stats", handleNewCheckin);
+};
 
 // 监听 WebSocket 连接状态，连接成功后订阅
 watch(
   () => wsStore.isConnected,
   (connected) => {
     if (connected) {
-      subscribeWebSocket()
+      subscribeWebSocket();
     }
   },
   { immediate: true }
-)
+);
 
 // 开启签到
 const handleOpenCheckIn = async () => {
-  btnLoading.value = true
+  btnLoading.value = true;
   try {
-    const res = await openCheckIn(activityStore.activityId)
+    const res = await openCheckIn(activityStore.activityId);
     if (res.code === 0) {
-      checkInData.isOpen = true
+      checkInData.isOpen = true;
     }
   } catch (e) {
-    console.error('开启签到失败', e)
+    console.error("开启签到失败", e);
   } finally {
-    btnLoading.value = false
+    btnLoading.value = false;
   }
-}
+};
 
 // 关闭签到
 const handleCloseCheckIn = async () => {
-  btnLoading.value = true
+  btnLoading.value = true;
   try {
-    const res = await closeCheckIn(activityStore.activityId)
+    const res = await closeCheckIn(activityStore.activityId);
     if (res.code === 0) {
-      checkInData.isOpen = false
+      checkInData.isOpen = false;
     }
   } catch (e) {
-    console.error('关闭签到失败', e)
+    console.error("关闭签到失败", e);
   } finally {
-    btnLoading.value = false
+    btnLoading.value = false;
   }
-}
+};
 
 // 进入游戏控制
 const goToGame = () => {
-  router.push({ path: '/game', query: { activityId: activityStore.activityId } })
-}
+  router.push({
+    path: "/game",
+    query: { activityId: activityStore.activityId },
+  });
+};
 
 // 重试加载
 const retryLoad = async () => {
-  await activityStore.init(route.query.activityId)
+  await activityStore.init(route.query.activityId);
   if (activityStore.isReady) {
-    await fetchCheckInData()
+    await fetchCheckInData();
   }
-}
+};
 
 // 初始化
 onMounted(async () => {
-  updateTime()
-  timeTimer = setInterval(updateTime, 1000)
+  updateTime();
+  timeTimer = setInterval(updateTime, 1000);
 
-  const success = await activityStore.init(route.query.activityId)
+  const success = await activityStore.init(route.query.activityId);
 
   if (success) {
     // 只请求一次初始数据
-    await fetchCheckInData()
-    
+    await fetchCheckInData();
+
     // 如果 WebSocket 已连接，立即订阅
     if (wsStore.isConnected) {
-      subscribeWebSocket()
+      subscribeWebSocket();
     }
   }
-})
+});
 
 // 清理
 onUnmounted(() => {
-  if (timeTimer) clearInterval(timeTimer)
-  if (unsubscribeCheckin) unsubscribeCheckin()
-})
+  if (timeTimer) clearInterval(timeTimer);
+  if (unsubscribeCheckin) unsubscribeCheckin();
+});
 </script>
 
 <style lang="scss" scoped>
@@ -441,7 +450,9 @@ $text-gold: #ffd700;
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 // 背景装饰
@@ -518,15 +529,22 @@ $text-gold: #ffd700;
     }
 
     &.connected {
-      .ws-dot { background: #4caf50; }
+      .ws-dot {
+        background: #4caf50;
+      }
       color: #81c784;
     }
     &.connecting {
-      .ws-dot { background: #ffc107; animation: blink 1s infinite; }
+      .ws-dot {
+        background: #ffc107;
+        animation: blink 1s infinite;
+      }
       color: #ffc107;
     }
     &.disconnected {
-      .ws-dot { background: #f44336; }
+      .ws-dot {
+        background: #f44336;
+      }
       color: #e57373;
     }
   }
@@ -534,14 +552,19 @@ $text-gold: #ffd700;
   .time-display {
     font-size: 20px;
     font-weight: 600;
-    font-family: 'Courier New', monospace;
+    font-family: "Courier New", monospace;
     color: $primary-gold;
   }
 }
 
 @keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .game-entry-btn {
@@ -570,8 +593,13 @@ $text-gold: #ffd700;
 }
 
 @keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
 // 主体内容 - 两栏布局
@@ -602,7 +630,11 @@ $text-gold: #ffd700;
   align-items: center;
   gap: 10px;
   padding: 16px 20px;
-  background: linear-gradient(to right, rgba(154, 27, 48, 0.5), rgba(40, 15, 15, 0.5));
+  background: linear-gradient(
+    to right,
+    rgba(154, 27, 48, 0.5),
+    rgba(40, 15, 15, 0.5)
+  );
   border-bottom: 1px solid rgba(255, 215, 0, 0.1);
 
   .panel-icon {
@@ -663,10 +695,18 @@ $text-gold: #ffd700;
       line-height: 1;
       margin-bottom: 8px;
 
-      &.gold { color: $primary-gold; }
-      &.orange { color: #ffa726; }
-      &.green { color: #66bb6a; }
-      &.red { color: #ef5350; }
+      &.gold {
+        color: $primary-gold;
+      }
+      &.orange {
+        color: #ffa726;
+      }
+      &.green {
+        color: #66bb6a;
+      }
+      &.red {
+        color: #ef5350;
+      }
     }
 
     .stat-label {
@@ -748,8 +788,14 @@ $text-gold: #ffd700;
 }
 
 @keyframes glow {
-  0%, 100% { box-shadow: 0 4px 15px rgba(230, 57, 70, 0.4); }
-  50% { box-shadow: 0 4px 30px rgba(230, 57, 70, 0.7), 0 0 60px rgba(255, 215, 0, 0.3); }
+  0%,
+  100% {
+    box-shadow: 0 4px 15px rgba(230, 57, 70, 0.4);
+  }
+  50% {
+    box-shadow: 0 4px 30px rgba(230, 57, 70, 0.7),
+      0 0 60px rgba(255, 215, 0, 0.3);
+  }
 }
 
 // 签到列表
@@ -780,7 +826,9 @@ $text-gold: #ffd700;
     border-radius: 8px;
     margin-bottom: 8px;
 
-    &:last-child { margin-bottom: 0; }
+    &:last-child {
+      margin-bottom: 0;
+    }
 
     .user-avatar {
       width: 36px;
@@ -815,7 +863,7 @@ $text-gold: #ffd700;
     .checkin-time {
       font-size: 12px;
       color: rgba(255, 255, 255, 0.5);
-      font-family: 'Courier New', monospace;
+      font-family: "Courier New", monospace;
     }
   }
 
