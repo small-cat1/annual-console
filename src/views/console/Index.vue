@@ -72,32 +72,26 @@
           </div>
 
           <div class="panel-body">
-            <!-- 签到统计 -->
-            <div class="stats-grid">
-              <div class="stat-item">
-                <div class="stat-value gold">{{ checkInData.total }}</div>
-                <div class="stat-label">总签到</div>
+            <!-- 签到展示区：左侧人数 + 右侧二维码 -->
+            <div class="checkin-display" v-if="checkInData.isOpen">
+              <div class="checkin-count">
+                <div class="count-value">{{ checkInData.total }}</div>
+                <div class="count-label">签到人数</div>
               </div>
-              <div class="stat-item">
-                <div class="stat-value orange">{{ checkInData.pending }}</div>
-                <div class="stat-label">待审核</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value green">{{ checkInData.approved }}</div>
-                <div class="stat-label">已通过</div>
-              </div>
-              <div class="stat-item">
-                <div class="stat-value red">{{ checkInData.rejected }}</div>
-                <div class="stat-label">已拒绝</div>
+              <div class="qrcode-box">
+                <div class="qrcode-wrapper">
+                  <qrcode-vue :value="checkInQrUrl" :size="200" level="M" />
+                </div>
+                <p class="qrcode-tip">扫码进入活动</p>
               </div>
             </div>
 
-            <!-- 二维码区域 -->
-            <div class="qrcode-section" v-if="checkInData.isOpen">
-              <div class="qrcode-wrapper">
-                <qrcode-vue :value="checkInQrUrl" :size="180" level="M" />
+            <!-- 未开启时只显示人数 -->
+            <div class="checkin-display single" v-else>
+              <div class="checkin-count">
+                <div class="count-value">{{ checkInData.total }}</div>
+                <div class="count-label">签到人数</div>
               </div>
-              <p class="qrcode-tip">扫码进入活动</p>
             </div>
 
             <!-- 签到控制按钮 -->
@@ -267,31 +261,17 @@ const fetchCheckInData = async () => {
 
 // 处理新签到（WebSocket 推送）
 const handleNewCheckin = (data) => {
-  console.log("收到新签到:", data);
+  console.log("收到签到统计更新:", data);
 
-  // 更新统计
-  checkInData.total++;
-  if (data.status === 0) {
-    checkInData.pending++;
-  } else if (data.status === 1) {
-    checkInData.approved++;
-  }
+  // 直接替换统计数据
+  checkInData.total = data.total ?? checkInData.total;
+  checkInData.pending = data.pending ?? checkInData.pending;
+  checkInData.approved = data.approved ?? checkInData.approved;
+  checkInData.rejected = data.rejected ?? checkInData.rejected;
 
-  // 添加到列表头部
-  checkInData.list.unshift({
-    id: data.id,
-    nickname: data.nickname,
-    realName: data.realName,
-    avatar: data.avatar,
-    department: data.department,
-    checkInTime:
-      data.checkInTime ||
-      new Date().toLocaleTimeString("zh-CN", { hour12: false }),
-  });
-
-  // 限制列表长度
-  if (checkInData.list.length > 20) {
-    checkInData.list = checkInData.list.slice(0, 20);
+  // 如果有列表数据也更新
+  if (data.list) {
+    checkInData.list = data.list;
   }
 };
 
@@ -675,47 +655,6 @@ $text-gold: #ffd700;
   overflow-y: auto;
 }
 
-// 签到统计 - 4列布局
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  margin-bottom: 24px;
-
-  .stat-item {
-    text-align: center;
-    padding: 16px 8px;
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 12px;
-    border: 1px solid rgba(255, 215, 0, 0.1);
-
-    .stat-value {
-      font-size: 28px;
-      font-weight: 700;
-      line-height: 1;
-      margin-bottom: 8px;
-
-      &.gold {
-        color: $primary-gold;
-      }
-      &.orange {
-        color: #ffa726;
-      }
-      &.green {
-        color: #66bb6a;
-      }
-      &.red {
-        color: #ef5350;
-      }
-    }
-
-    .stat-label {
-      font-size: 12px;
-      opacity: 0.7;
-    }
-  }
-}
-
 // 二维码区域
 .qrcode-section {
   display: flex;
@@ -874,7 +813,69 @@ $text-gold: #ffd700;
     opacity: 0.5;
   }
 }
+// 签到展示区 - 左右布局
+.checkin-display {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 24px;
 
+  &.single {
+    justify-content: center;
+  }
+}
+
+.checkin-count {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  padding: 30px 20px;
+  min-height: 280px;
+
+  .count-value {
+    font-size: 100px;
+    font-weight: 700;
+    color: $primary-gold;
+    line-height: 1;
+    text-shadow: 0 0 30px rgba(255, 215, 0, 0.5);
+  }
+
+  .count-label {
+    margin-top: 16px;
+    font-size: 18px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+}
+
+.qrcode-box {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  padding: 20px;
+  min-height: 280px;
+
+  .qrcode-wrapper {
+    padding: 16px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 0 40px rgba(255, 215, 0, 0.3);
+  }
+
+  .qrcode-tip {
+    margin-top: 16px;
+    font-size: 15px;
+    color: $primary-gold;
+  }
+}
 // 底部状态栏
 .console-footer {
   position: relative;
@@ -917,10 +918,6 @@ $text-gold: #ffd700;
     .header-right {
       flex: none;
     }
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
   }
 }
 </style>
