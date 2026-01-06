@@ -7,7 +7,6 @@ export const useActivityStore = defineStore("activity", {
     config: null,
     loadError: false,
     isReady: false,
-    initialized: false, // 新增：标记是否完成初始化检查
   }),
 
   getters: {
@@ -24,9 +23,6 @@ export const useActivityStore = defineStore("activity", {
 
     // 是否有活动ID
     hasActivityId: (state) => !!state.activityId,
-    
-    // 是否显示无活动提示（初始化完成且没有活动ID）
-    showNoActivity: (state) => state.initialized && !state.activityId,
   },
 
   actions: {
@@ -38,11 +34,10 @@ export const useActivityStore = defineStore("activity", {
       if (!activityId) {
         activityId = localStorage.getItem("activityId");
       }
-      console.log("Activity ID:", activityId);
+      console.log(activityId);
       if (!activityId) {
         this.activityId = null;
         this.config = null;
-        this.initialized = true; // 标记初始化完成
         return false;
       }
 
@@ -53,17 +48,14 @@ export const useActivityStore = defineStore("activity", {
           localStorage.setItem("activityId", this.activityId);
           this.config = res.data;
           this.isReady = true;
-          this.initialized = true; // 标记初始化完成
           return true;
         } else {
           this.loadError = true;
-          this.initialized = true; // 标记初始化完成
           return false;
         }
       } catch (e) {
         console.error("获取活动信息失败", e);
         this.loadError = true;
-        this.initialized = true; // 标记初始化完成
         return false;
       }
     },
