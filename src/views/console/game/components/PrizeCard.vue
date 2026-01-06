@@ -3,7 +3,7 @@
     <div class="prize-badge">本轮奖品</div>
     <div class="prize-content">
       <div class="prize-image-wrap">
-        <img :src="prizeImage" class="prize-image" />
+        <img :src="getUrl(props.round?.prize?.image)" class="prize-image" />
         <div class="prize-shine"></div>
       </div>
 
@@ -12,7 +12,9 @@
         <!-- 5秒准备倒计时 -->
         <div v-if="showCountdown" class="countdown-display ready-countdown">
           <span class="countdown-label">准备开始</span>
-          <span class="countdown-value countdown-big">{{ prepareCountdown }}</span>
+          <span class="countdown-value countdown-big">{{
+            prepareCountdown
+          }}</span>
         </div>
 
         <!-- 游戏进行中倒计时 -->
@@ -75,9 +77,9 @@
 </template>
 
 <script setup>
+import { getUrl } from "@/utils/format";
 import { computed } from "vue";
 import { getPrizeLevel } from "../composables/utils";
-
 const props = defineProps({
   round: {
     type: Object,
@@ -107,11 +109,6 @@ const props = defineProps({
     type: Number,
     default: 0,
   },
-});
-const prizeImage = computed(() => {
-  if (!props.round?.prize?.image) return '';
-  const baseUrl = import.meta.env.VITE_APP_H5_URL || '';
-  return baseUrl +"/"+ props.round.prize.image;
 });
 const prizeLevel = computed(() => getPrizeLevel(props.round?.prize?.level));
 </script>
