@@ -43,7 +43,7 @@ export function formatDuration(seconds) {
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
 }
 
-const path = import.meta.env.VITE_FILE_API;
+const path = import.meta.env.VITE_FILE_API+"/api";
 export const getUrl = (url) => {
   if (url && url.slice(0, 4) !== "http") {
     if (path === "/") {
