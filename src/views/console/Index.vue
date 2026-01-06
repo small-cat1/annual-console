@@ -1,7 +1,13 @@
 <template>
   <div class="console-page">
+    <!-- 加载中（初始化未完成时显示） -->
+    <div v-if="!activityStore.initialized" class="loading-state">
+      <div class="loading-spinner"></div>
+      <p>加载中...</p>
+    </div>
+
     <!-- 无活动ID提示 -->
-    <div v-if="!activityStore.hasActivityId" class="no-activity">
+    <div v-else-if="activityStore.showNoActivity" class="no-activity">
       <div class="no-activity-content">
         <span class="icon">⚠️</span>
         <h2>未指定活动</h2>
@@ -167,12 +173,6 @@
         </div>
       </footer>
     </template>
-
-    <!-- 加载中 -->
-    <div v-else class="loading-state">
-      <div class="loading-spinner"></div>
-      <p>加载中...</p>
-    </div>
   </div>
 </template>
 
