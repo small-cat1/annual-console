@@ -15,8 +15,11 @@ export function useGameLogic() {
   // 游戏状态 -1:未选择 0:已选择待开始 1:进行中 2:已结束
   const gameStatus = ref(-1);
   const playerCount = ref(0);
-  const remainTime = ref(0);
-  const totalTime = ref(30);
+
+  // ⭐ 改用 endTime 替代 remainTime
+  const endTime = ref(0); // 游戏结束时间戳（毫秒）
+  const totalTime = ref(30); // 游戏总时长（秒）
+  const currentTime = ref(Date.now()); // 当前时间（用于触发 computed 更新）
 
   // 5秒准备倒计时
   const showCountdown = ref(false);
@@ -36,12 +39,21 @@ export function useGameLogic() {
 
   // 定时器
   let countdownTimer = null;
-  let gameTimer = null;
+  let timeUpdateTimer = null; // 用于更新 currentTime
 
   // WebSocket 订阅
   let unsubscribeRankingUpdate = null;
+  let unsubscribeGameStart = null;
+  let unsubscribeGameStop = null;
 
   // ==================== Computed ====================
+
+  // ⭐ 剩余时间（自动计算）
+  const remainTime = computed(() => {
+    if (!endTime.value || gameStatus.value !== 1) return 0;
+    const remain = Math.ceil((endTime.value - currentTime.value) / 1000);
+    return Math.max(0, remain);
+  });
 
   const availableRounds = computed(() => {
     return roundList.value.filter((r) => r.status !== 2);
@@ -84,6 +96,44 @@ export function useGameLogic() {
     }
   });
 
+  // ==================== 时间更新 ====================
+
+  // ⭐ 启动时间更新器（每秒更新 currentTime）
+  const startTimeUpdater = () => {
+    if (timeUpdateTimer) return;
+
+    timeUpdateTimer = setInterval(() => {
+      currentTime.value = Date.now();
+
+      // 检查游戏是否结束
+      if (gameStatus.value === 1 && remainTime.value <= 0) {
+        stopTimeUpdater();
+        requestStopGame();
+      }
+    }, 1000);
+  };
+
+  // 停止时间更新器
+  const stopTimeUpdater = () => {
+    if (timeUpdateTimer) {
+      clearInterval(timeUpdateTimer);
+      timeUpdateTimer = null;
+    }
+  };
+
+  // ⭐ 监听页面可见性变化（手机黑屏恢复）
+  const handleVisibilityChange = () => {
+    if (!document.hidden && gameStatus.value === 1) {
+      // 页面恢复，立即更新时间
+      currentTime.value = Date.now();
+
+      // 如果游戏已结束
+      if (remainTime.value <= 0) {
+        requestStopGame();
+      }
+    }
+  };
+
   // ==================== WebSocket ====================
 
   const handleRankingUpdate = (data) => {
@@ -94,6 +144,24 @@ export function useGameLogic() {
     if (data.playerCount !== undefined) {
       playerCount.value = data.playerCount;
     }
+  };
+
+  // ⭐ 处理游戏开始广播
+  const handleGameStart = (data) => {
+    console.log("收到游戏开始广播:", data);
+    if (data.endTime) {
+      endTime.value = data.endTime;
+      totalTime.value = data.duration || 30;
+      gameStatus.value = 1;
+      startTimeUpdater();
+    }
+  };
+
+  // ⭐ 处理游戏结束广播
+  const handleGameStop = (data) => {
+    console.log("收到游戏结束广播:", data);
+    stopTimeUpdater();
+    gameStatus.value = 2;
   };
 
   const updateRanking = (newList) => {
@@ -129,6 +197,11 @@ export function useGameLogic() {
       "ranking_update",
       handleRankingUpdate
     );
+
+    // ⭐ 订阅游戏开始/结束事件
+    unsubscribeGameStart = wsStore.subscribe("game_start", handleGameStart);
+
+    unsubscribeGameStop = wsStore.subscribe("game_stop", handleGameStop);
   };
 
   const unsubscribeAll = () => {
@@ -136,9 +209,17 @@ export function useGameLogic() {
       unsubscribeRankingUpdate();
       unsubscribeRankingUpdate = null;
     }
+    if (unsubscribeGameStart) {
+      unsubscribeGameStart();
+      unsubscribeGameStart = null;
+    }
+    if (unsubscribeGameStop) {
+      unsubscribeGameStop();
+      unsubscribeGameStop = null;
+    }
   };
 
-  // ✅ 修复：重连时先取消旧订阅再重新订阅
+  // 重连时重新订阅
   watch(
     () => wsStore.isConnected,
     (connected) => {
@@ -170,17 +251,22 @@ export function useGameLogic() {
         currentRound.value = res.data.round;
         selectedRoundId.value = res.data.round.id;
         gameStatus.value = res.data.status;
-        remainTime.value = res.data.remaining || 0;
         totalTime.value = res.data.round.duration || 30;
 
         if (res.data.ranking) {
           rankingList.value = res.data.ranking;
         }
 
-        // ✅ 修复：如果游戏正在进行中，恢复倒计时
-        if (res.data.status === 1 && res.data.remaining > 0) {
-          console.log("恢复进行中的游戏，剩余时间:", res.data.remaining);
-          startGameCountdown();
+        if (res.data.playerCount !== undefined) {
+          playerCount.value = res.data.playerCount;
+        }
+
+        // ⭐ 使用 endTime
+        if (res.data.status === 1 && res.data.endTime) {
+          console.log("恢复进行中的游戏，endTime:", res.data.endTime);
+          endTime.value = res.data.endTime;
+          currentTime.value = Date.now();
+          startTimeUpdater();
         }
 
         return true;
@@ -221,12 +307,19 @@ export function useGameLogic() {
 
   // 请求后端开始游戏
   const requestStartGame = async () => {
-    startLoading.value = true; // ✅ 修复：添加 loading 状态
+    startLoading.value = true;
     try {
       const res = await startGame(currentRound.value.id, password.value);
       if (res.code === 0) {
         password.value = "";
-        startGameCountdown();
+
+        // ⭐ 使用返回的 endTime
+        if (res.data?.endTime) {
+          endTime.value = res.data.endTime;
+          currentTime.value = Date.now();
+          gameStatus.value = 1;
+          startTimeUpdater();
+        }
       } else {
         alert(res.msg || "开始游戏失败");
         gameStatus.value = 0;
@@ -236,30 +329,8 @@ export function useGameLogic() {
       alert("开始游戏失败，请重试");
       gameStatus.value = 0;
     } finally {
-      startLoading.value = false; // ✅ 修复：结束 loading
+      startLoading.value = false;
     }
-  };
-
-  // 开始游戏倒计时
-  const startGameCountdown = () => {
-    gameStatus.value = 1;
-
-    // ✅ 修复：如果 remainTime 为 0，使用 totalTime
-    if (remainTime.value <= 0) {
-      remainTime.value = totalTime.value;
-    }
-
-    if (gameTimer) clearInterval(gameTimer);
-
-    gameTimer = setInterval(() => {
-      if (remainTime.value > 0) {
-        remainTime.value--;
-      } else {
-        clearInterval(gameTimer);
-        gameTimer = null;
-        requestStopGame();
-      }
-    }, 1000);
   };
 
   // 请求后端结束游戏
@@ -267,6 +338,7 @@ export function useGameLogic() {
     try {
       const res = await stopGame(currentRound.value.id);
       if (res.code === 0) {
+        stopTimeUpdater();
         gameStatus.value = 2;
 
         if (res.data?.winners && res.data.winners.length > 0) {
@@ -288,12 +360,7 @@ export function useGameLogic() {
   // 手动停止游戏
   const handleStop = async () => {
     if (!confirm("确定要立即结束游戏吗？")) return;
-
-    if (gameTimer) {
-      clearInterval(gameTimer);
-      gameTimer = null;
-    }
-
+    stopTimeUpdater();
     await requestStopGame();
   };
 
@@ -312,7 +379,8 @@ export function useGameLogic() {
     winners.value = [];
     prevRankingMap.value = {};
     playerCount.value = 0;
-    remainTime.value = 0;
+    endTime.value = 0;
+    stopTimeUpdater();
   };
 
   // 关闭庆祝弹窗
@@ -335,6 +403,9 @@ export function useGameLogic() {
 
   // 初始化
   const initGameData = async () => {
+    // 添加页面可见性监听
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
     await fetchRoundList();
     await checkCurrentRound();
 
@@ -347,8 +418,9 @@ export function useGameLogic() {
   // 清理
   const cleanup = () => {
     unsubscribeAll();
+    stopTimeUpdater();
     if (countdownTimer) clearInterval(countdownTimer);
-    if (gameTimer) clearInterval(gameTimer);
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
   };
 
   return {
@@ -359,7 +431,7 @@ export function useGameLogic() {
     currentRound,
     gameStatus,
     playerCount,
-    remainTime,
+    remainTime, // computed，自动计算
     totalTime,
     showCountdown,
     prepareCountdown,
