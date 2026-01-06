@@ -121,7 +121,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
     // 方法
     connect,
     disconnect,
-    send,
     subscribe,
 
   
