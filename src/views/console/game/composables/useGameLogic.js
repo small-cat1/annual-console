@@ -1,10 +1,4 @@
-import {
-  getCurrentRound,
-  getRoundList,
-  getWinners,
-  startGame,
-  stopGame,
-} from "@/api/game";
+import { getCurrentRound, getRoundList, startGame, stopGame } from "@/api/game";
 import { useActivityStore } from "@/store/activity";
 import { useWebSocketStore } from "@/store/websocket";
 import { computed, ref, watch } from "vue";
@@ -138,13 +132,18 @@ export function useGameLogic() {
   };
 
   const unsubscribeAll = () => {
-    if (unsubscribeRankingUpdate) unsubscribeRankingUpdate();
+    if (unsubscribeRankingUpdate) {
+      unsubscribeRankingUpdate();
+      unsubscribeRankingUpdate = null;
+    }
   };
 
+  // ✅ 修复：重连时先取消旧订阅再重新订阅
   watch(
     () => wsStore.isConnected,
     (connected) => {
       if (connected) {
+        unsubscribeAll();
         subscribeWebSocket();
       }
     },
@@ -178,25 +177,18 @@ export function useGameLogic() {
           rankingList.value = res.data.ranking;
         }
 
+        // ✅ 修复：如果游戏正在进行中，恢复倒计时
+        if (res.data.status === 1 && res.data.remaining > 0) {
+          console.log("恢复进行中的游戏，剩余时间:", res.data.remaining);
+          startGameCountdown();
+        }
+
         return true;
       }
       return false;
     } catch (e) {
       console.error("检查当前场次失败", e);
       return false;
-    }
-  };
-
-  const fetchWinners = async () => {
-    if (!currentRound.value) return;
-
-    try {
-      const res = await getWinners(currentRound.value.id);
-      if (res.code === 0) {
-        winners.value = res.data?.list || [];
-      }
-    } catch (e) {
-      console.error("获取中奖名单失败", e);
     }
   };
 
@@ -229,6 +221,7 @@ export function useGameLogic() {
 
   // 请求后端开始游戏
   const requestStartGame = async () => {
+    startLoading.value = true; // ✅ 修复：添加 loading 状态
     try {
       const res = await startGame(currentRound.value.id, password.value);
       if (res.code === 0) {
@@ -242,13 +235,19 @@ export function useGameLogic() {
       console.error("开始游戏失败", e);
       alert("开始游戏失败，请重试");
       gameStatus.value = 0;
+    } finally {
+      startLoading.value = false; // ✅ 修复：结束 loading
     }
   };
 
   // 开始游戏倒计时
   const startGameCountdown = () => {
     gameStatus.value = 1;
-    remainTime.value = totalTime.value;
+
+    // ✅ 修复：如果 remainTime 为 0，使用 totalTime
+    if (remainTime.value <= 0) {
+      remainTime.value = totalTime.value;
+    }
 
     if (gameTimer) clearInterval(gameTimer);
 
@@ -340,6 +339,7 @@ export function useGameLogic() {
     await checkCurrentRound();
 
     if (wsStore.isConnected) {
+      unsubscribeAll();
       subscribeWebSocket();
     }
   };

@@ -99,13 +99,6 @@ export const useWebSocketStore = defineStore('websocket', () => {
   }
 
   /**
-   * 发送消息
-   */
-  function send(type, payload) {
-    return ws.send(type, payload)
-  }
-
-  /**
    * 订阅消息
    * @returns {Function} 取消订阅函数
    */
@@ -113,26 +106,9 @@ export const useWebSocketStore = defineStore('websocket', () => {
     return ws.on(event, callback)
   }
 
-  /**
-   * 取消订阅
-   */
-  function unsubscribe(event, callback) {
-    ws.off(event, callback)
-  }
 
-  /**
-   * 加入房间
-   */
-  function joinRoom(roomId) {
-    return ws.joinRoom(roomId)
-  }
 
-  /**
-   * 离开房间
-   */
-  function leaveRoom(roomId) {
-    return ws.leaveRoom(roomId)
-  }
+
 
   return {
     // 状态
@@ -147,10 +123,8 @@ export const useWebSocketStore = defineStore('websocket', () => {
     disconnect,
     send,
     subscribe,
-    unsubscribe,
-    joinRoom,
-    leaveRoom,
-    
+
+  
     // 原始实例（高级用法）
     ws
   }
