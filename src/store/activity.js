@@ -1,62 +1,63 @@
-import { defineStore } from 'pinia'
-import { getActivityDetail } from '@/api/activity'
+import { getActivityDetail } from "@/api/activity";
+import { defineStore } from "pinia";
 
-export const useActivityStore = defineStore('activity', {
+export const useActivityStore = defineStore("activity", {
   state: () => ({
     activityId: null,
     config: null,
     loadError: false,
-    isReady: false
+    isReady: false,
   }),
 
   getters: {
     // 活动状态 0未开始 1进行中 2已结束
     activityStatus: (state) => {
-      if (!state.config) return -1
-      return state.config.status ?? -1
+      if (!state.config) return -1;
+      return state.config.status ?? -1;
     },
 
     // 活动是否进行中
     isOngoing: (state) => {
-      return state.config?.status === 1
+      return state.config?.status === 1;
     },
 
     // 是否有活动ID
-    hasActivityId: (state) => !!state.activityId
+    hasActivityId: (state) => !!state.activityId,
   },
 
   actions: {
     async init(activityId) {
       // 重置状态
-      this.loadError = false
-      this.isReady = false
+      this.loadError = false;
+      this.isReady = false;
 
       if (!activityId) {
-        this.activityId = null
-        this.config = null
-        return false
+        activityId = localStorage.getItem("activityId");
       }
-
-      this.activityId = Number(activityId)
-
-      // 保存到本地
-      localStorage.setItem('activityId', this.activityId)
+      console.log(activityId);
+      if (!activityId) {
+        this.activityId = null;
+        this.config = null;
+        return false;
+      }
 
       try {
-        const res = await getActivityDetail(this.activityId)
+        const res = await getActivityDetail(activityId);
         if (res.code === 0 && res.data) {
-          this.config = res.data
-          this.isReady = true
-          return true
+          this.activityId = Number(activityId);
+          localStorage.setItem("activityId", this.activityId);
+          this.config = res.data;
+          this.isReady = true;
+          return true;
         } else {
-          this.loadError = true
-          return false
+          this.loadError = true;
+          return false;
         }
       } catch (e) {
-        console.error('获取活动信息失败', e)
-        this.loadError = true
-        return false
+        console.error("获取活动信息失败", e);
+        this.loadError = true;
+        return false;
       }
-    }
-  }
-})
+    },
+  },
+});

@@ -73,27 +73,6 @@ export function cancelGame(roundId) {
   })
 }
 
-/**
- * 获取游戏状态
- */
-export function getGameStatus(roundId) {
-  return request({
-    url: '/console/game/status',
-    method: 'get',
-    params: { roundId }
-  })
-}
-
-/**
- * 获取排行榜
- */
-export function getRanking(roundId, limit = 20) {
-  return request({
-    url: '/console/game/ranking',
-    method: 'get',
-    params: { roundId, limit }
-  })
-}
 
 /**
  * 获取中奖名单
