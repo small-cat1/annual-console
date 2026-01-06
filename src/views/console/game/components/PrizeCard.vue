@@ -3,7 +3,7 @@
     <div class="prize-badge">本轮奖品</div>
     <div class="prize-content">
       <div class="prize-image-wrap">
-        <img :src="round.prize.image" class="prize-image" />
+        <img :src="prizeImage" class="prize-image" />
         <div class="prize-shine"></div>
       </div>
 
@@ -108,7 +108,11 @@ const props = defineProps({
     default: 0,
   },
 });
-
+const prizeImage = computed(() => {
+  if (!props.round?.prize?.image) return '';
+  const baseUrl = import.meta.env.VITE_APP_H5_URL || '';
+  return baseUrl +"/"+ props.round.prize.image;
+});
 const prizeLevel = computed(() => getPrizeLevel(props.round?.prize?.level));
 </script>
 
