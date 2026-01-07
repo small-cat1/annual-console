@@ -12,7 +12,7 @@
         </div>
         <div class="modal-body">
           <div class="winner-prize-info" v-if="prize">
-            <img :src="prize.image" class="winner-prize-img" />
+            <img :src="getUrl(prize.image)" class="winner-prize-img" />
             <span class="winner-prize-name">{{ prize.name }}</span>
           </div>
           <div class="winner-list-full">
@@ -51,6 +51,7 @@
 </template>
 
 <script setup>
+  import { getUrl } from "@/utils/format";
 import { DEFAULT_AVATAR } from "../composables/utils";
 
 defineProps({
